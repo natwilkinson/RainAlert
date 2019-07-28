@@ -122,8 +122,7 @@ def checkWeatherConditions(individualData, zipData):
 
 # gets weather at zipcode location
 def locationWeather(zip):
-    api_key = os.environ['weather_api_key']
-    zipURL = "http://api.openweathermap.org/data/2.5/weather?zip=" + str(zip) + ",us&APPID=" + api_key
+    zipURL = "http://api.openweathermap.org/data/2.5/weather?zip={},us&APPID={}".format(str(zip), os.environ['weather_api_key'])
     zipSearch = requests.get(zipURL)
     if zipSearch.status_code == 200:
             zipData = zipSearch.json()
