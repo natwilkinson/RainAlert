@@ -134,11 +134,11 @@ def checkAgain(lastMessage):
     if lastMessage == None:
         return True
         # send text
-    currentTime = datetime.datetime.now()
+    currentTime = datetime.datetime.utcnow()
     # gives time since last text in hours
+    time = currentTime - lastMessage
     timeSinceText = (currentTime - lastMessage).total_seconds() / 3600
-    print(timeSinceText)
-    if timeSinceText >= 0.07:
+    if timeSinceText >= 12:
         return True
         # send text
     return False
