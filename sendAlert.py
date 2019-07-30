@@ -5,8 +5,8 @@ from twilio.rest import Client
 import psycopg2
 
 # example info from database:
-#data = ['30080', 40, 80, True, True, datetime.datetime.now() - datetime.timedelta(days=1), 'Natalie', '6782188624'],
-#['94117', 60, 40, True, True, None, 'Yash', '6302173889']]
+#[('30080', 40, 80, True, True, datetime.datetime.now() - datetime.timedelta(days=1), 'Natalie', '6782188624'),
+#('94117', 60, 40, True, True, None, 'Yash', '6302173889')]
 
 # [ (), (), ()]
 def main():
