@@ -1,17 +1,3 @@
-"""
-TODO:
-- (DONE) Take in name, phone number, zipcode, highest temp, lowest temp,
-rain, and snow, and the time last messaged.
-- (DONE) write script to hit Open Weather Map API for location, and
-determine if someone should get a text
-- (DONE) set up twilio for text messages
-- (DONE) figure out how to run through/read info from the database
-- (DONE) figure out how to update the database with a new time
-(last sent text, so they don't get updated again for some period of time)
-- build a front end connected to the database
-- Hide twilio and Weather Map authentication keys, postgres
-- Run fxn every __ min
- """
 import datetime
 import requests
 import os
@@ -19,27 +5,27 @@ from twilio.rest import Client
 import psycopg2
 
 # example info from database:
-#data = [['30080', 40, 80, True, True, datetime.datetime.now() - datetime.timedelta(days=1), 'Natalie', '6782188624'],
+#data = ['30080', 40, 80, True, True, datetime.datetime.now() - datetime.timedelta(days=1), 'Natalie', '6782188624'],
 #['94117', 60, 40, True, True, None, 'Yash', '6302173889']]
 
-
+# [ (), (), ()]
 def main():
-    data = getDataAndFormat()
-    for individualData in data:
+    data = get_data_and_format()
+    for individual_data in data:
         # checkWeather is a boolean
         # determines whether or not the program calls API for user
-        checkWeather = checkAgain(individualData[5])
-        if not checkWeather:
-            continue
-        # zipData contains the weather info for user's zipcode
-        zipData = locationWeather(individualData[0])
-        badWeather = checkWeatherConditions(individualData, zipData)
-        if len(badWeather) == 0:
+        #checkWeather = user_notification_status(individual_data[5])
+        #if not checkWeather:
+            #continue
+        # zip_data contains the weather info for user's zipcode
+        zip_data = location_weather(individual_data[0])
+        bad_weather = check_weather_conditions(individual_data, zip_data)
+        if len(bad_weather) == 0:
             print("nothing bad")
             continue
-        textContent = formatText(individualData[6], badWeather)
-        sendText(textContent, individualData[7])
-        update_last_message_time(individualData[7])
+        text_content = format_text(individual_data[6], bad_weather)
+        send_text(text_content, individual_data[7])
+        update_last_message_time(individual_data[7])
 
 def update_last_message_time(phone):
     sql = """ UPDATE public."userData"
@@ -63,15 +49,17 @@ def update_last_message_time(phone):
             conn.close()
     return err
 
-def getDataAndFormat():
-    databaseConnect = psycopg2.connect(host=os.environ['postgres_host'],database=os.environ['postgres_database'], user=os.environ['postgres_user'], password=os.environ['postgres_password'])
-    cur = databaseConnect.cursor()
-    cur.execute('SELECT * FROM public."userData";')
+def get_data_and_format():
+    database_connect = psycopg2.connect(host=os.environ['postgres_host'],database=os.environ['postgres_database'], user=os.environ['postgres_user'], password=os.environ['postgres_password'])
+    cur = database_connect.cursor()
+    cur.execute(""" SELECT * FROM public."userData"
+                        WHERE "userData"."lastMessage" < now() - interval '12 hours'
+                        OR "userData"."lastMessage" is null;""")
     data = cur.fetchall()
     cur.close()
     return data
 
-def sendText(content, phone):
+def send_text(content, phone):
     account_sid = os.environ['twilio_account_sid']
     auth_token = os.environ['twilio_auth_token']
     client = Client(account_sid, auth_token)
@@ -85,59 +73,59 @@ def sendText(content, phone):
 
 
 
-def formatText(name, badWeather):
+def format_text(name, bad_weather):
     message = ""
-    for condition in badWeather:
+    for condition in bad_weather:
         condition = condition + "\n"
         message += condition
-    outputString = "Hello, {}!\nThe weather in your location has changed recently.\n{}".format(name, message)
-    return outputString
+    output_string = "Hello, {}!\nThe weather in your location has changed recently.\n{}".format(name, message)
+    return output_string
 
 # checks the location weather conditions against user's bad weather input
 # returns a list of the weather conditions that are considered bad
-def checkWeatherConditions(individualData, zipData):
-    #print(zipData)
-    zipTempKelvin = zipData["main"]["temp"]
-    zipTempF = round(((zipTempKelvin - 273.15) * (9/5) + 32), 2)
-    badWeather = []
+def check_weather_conditions(individual_data, zip_data):
+    #print(zip_data)
+    zip_temp_kelvin = zip_data["main"]["temp"]
+    zip_temp_f = round(((zip_temp_kelvin - 273.15) * (9/5) + 32), 2)
+    bad_weather = []
     # compare location temp to bad weather conditions
-    if zipTempF > individualData[2]:
-        hot = "The temperature is {} ºF.".format(zipTempF)
-        badWeather.append(hot)
-    if zipTempF < individualData[1]:
-        cold = "The temperature is {} ºF.".format(zipTempF)
-        badWeather.append(cold)
-    if individualData[3] or individualData[4]:
-        zipWeather = zipData["weather"][0]["main"]
-        if individualData[3] == True:
-            if zipWeather == "Rain":
+    if zip_temp_f > individual_data[2]:
+        hot = "The temperature is {} ºF.".format(zip_temp_f)
+        bad_weather.append(hot)
+    if zip_temp_f < individual_data[1]:
+        cold = "The temperature is {} ºF.".format(zip_temp_f)
+        bad_weather.append(cold)
+    if individual_data[3] or individual_data[4]:
+        zip_weather = zip_data["weather"][0]["main"]
+        if individual_data[3] == True:
+            if zip_weather == "Rain":
                 weather = "It is currently raining."
-                badWeather.append(weather)
-        if individualData[3] == True:
-            if zipWeather == "Snow":
+                bad_weather.append(weather)
+        if individual_data[3] == True:
+            if zip_weather == "Snow":
                 weather = "It is currently snowing."
-                badWeather.append(weather)
-    return badWeather
+                bad_weather.append(weather)
+    return bad_weather
 
 
 # gets weather at zipcode location
-def locationWeather(zip):
-    zipURL = "http://api.openweathermap.org/data/2.5/weather?zip={},us&APPID={}".format(str(zip), os.environ['weather_api_key'])
-    zipSearch = requests.get(zipURL)
-    if zipSearch.status_code == 200:
-            zipData = zipSearch.json()
-            return zipData
+def location_weather(zip):
+    zip_URL = "http://api.openweathermap.org/data/2.5/weather?zip={},us&APPID={}".format(str(zip), os.environ['weather_api_key'])
+    zip_search = requests.get(zip_URL)
+    if zip_search.status_code == 200:
+            zip_data = zip_search.json()
+            return zip_data
 
 # last message in datetime format
-def checkAgain(lastMessage):
-    if lastMessage == None:
+def user_notification_status(last_message):
+    if last_message == None:
         return True
         # send text
-    currentTime = datetime.datetime.utcnow()
+    current_time = datetime.datetime.utcnow()
     # gives time since last text in hours
-    time = currentTime - lastMessage
-    timeSinceText = (currentTime - lastMessage).total_seconds() / 3600
-    if timeSinceText >= 12:
+    time = current_time - last_message
+    time_since_text = (current_time - last_message).total_seconds() / 3600
+    if time_since_text >= 12:
         return True
         # send text
     return False
